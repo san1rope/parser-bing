@@ -60,7 +60,7 @@ async def main(max_snippet_len: int = 300):
         page = await context.new_page()
         page2 = await context.new_page()
 
-        input()
+        return
         await Stealth().apply_stealth_async(page)
 
         params = {

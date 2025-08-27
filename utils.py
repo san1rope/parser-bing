@@ -1,16 +1,15 @@
 import asyncio
-import re
+import os
 import logging
+from datetime import datetime
+from logging import Logger
+from pathlib import Path
 from queue import Empty
-from typing import List, Dict, Optional, Union
-from urllib.parse import urlparse, parse_qs, unquote, urljoin
+from typing import Union
 from multiprocessing import Queue
 
-from selectolax.parser import HTMLParser
-
-from models import QueueMessage, SearchResult
-
-logger = logging.getLogger(__name__)
+from config import Config
+from models import QueueMessage
 
 
 class Utils:
@@ -27,14 +26,6 @@ class Utils:
         return asyncio.run(func(*args, **kwargs))
 
     @staticmethod
-    async def smooth_scroll_wheel(page, distance=1500, step=50, delay=0.03):
-        scrolled = 0
-        while scrolled < distance:
-            await page.mouse.wheel(0, step)
-            scrolled += step
-            await asyncio.sleep(delay)
-
-    @staticmethod
     async def calculate_pages_count(lst, n):
         k, m = divmod(len(lst), n)
         return [lst[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)]
@@ -47,3 +38,34 @@ class Utils:
 
         except Empty:
             return None
+
+    @staticmethod
+    async def add_logging(process_id: int, datetime_of_start: Union[datetime, str]) -> Logger:
+        if isinstance(datetime_of_start, str):
+            file_dir = datetime_of_start
+
+        elif isinstance(datetime_of_start, datetime):
+            file_dir = datetime_of_start.strftime(Config.DATETIME_FORMAT)
+
+        else:
+            raise TypeError("datetime_of_start must be str or datetime")
+
+        log_filepath = Path(os.path.abspath(f"{Config.LOGGING_DIR}/{file_dir}/{process_id}.txt"))
+        log_filepath.parent.mkdir(parents=True, exist_ok=True)
+        log_filepath.touch(exist_ok=True)
+
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(u'%(filename)s:%(lineno)d #%(levelname)-8s [%(asctime)s] - %(name)s - ' + str(
+            process_id) + '| %(message)s')
+
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+
+        file_handler = logging.FileHandler(log_filepath, mode="a", encoding="utf-8")
+        file_handler.setFormatter(formatter)
+
+        logger.addHandler(console_handler)
+        logger.addHandler(file_handler)
+
+        return logger
